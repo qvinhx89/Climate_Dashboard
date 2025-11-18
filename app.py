@@ -1,4 +1,4 @@
-# app.py  ← Copy-paste nguyên file này là chạy ngon 100%
+# app.py ← Copy nguyên file này là chạy mượt 100%
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -37,7 +37,7 @@ def load_data():
                  'Austria','Denmark','Finland','Norway','Ireland','New Zealand','Singapore']
     df['status'] = np.where(df['country'].isin(developed), 'Developed', 'Developing')
     
-    # Tỷ lệ
+    # Tỷ lệ tử vong & thương tích
     df['death_rate_%'] = df['deaths'] / df['affected_population'] * 100
     df['injury_rate_%'] = df['injuries'] / df['affected_population'] * 100
     
@@ -60,8 +60,8 @@ with tab1:
     
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Tổng sự kiện", f"{len(df):,}")
-    col2.metric("Quốc gia", df['country.nunique())
-    col3.metric("Loại thiên tai", df['event_type'].nunique())
+    col2.metric("Quốc gia", df['country'].nunique())           # ĐÃ SỬA DẤU NGOẶC
+    col3.metric("Loại thiên tai", df['event_type'].nunique())   # ĐÃ SỬA DẤU NGOẶC
     col4.metric("Thời gian", f"{df['date'].min().date()} → {df['date'].max().date()}")
 
     st.markdown("### Bản đồ toàn cầu")
@@ -88,7 +88,7 @@ with tab1:
         st.pyplot(fig)
 
     st.info("""
-    **Domain Knowledge quan trọng từ EDA cho thấy:**
+    **Domain Knowledge quan trọng từ EDA:**
     • Dữ liệu bị lệch phải nghiêm trọng → phải binning, không dùng giá trị thô  
     • Developing countries chiếm 68% sự kiện nhưng response time lại nhanh hơn Developed  
     • Có hiện tượng “cụm domino” rõ rệt ở Đông Nam Á, châu Âu, Bắc Mỹ  
