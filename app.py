@@ -226,10 +226,8 @@ def render_overview():
             navigate_to('BQ1')
 
 def render_bq1():
-    st.markdown("# ⚡ BQ1: Response time có ảnh hưởng đến số lượng người chết và bị thương không? Ảnh hưởng như thế nào? Và sự khác biệt địa lý giữa nước đã & đang phát triển là gì?
-")
+    st.markdown("# ⚡ BQ1: Response time có ảnh hưởng đến số lượng người chết và bị thương không? Ảnh hưởng như thế nào? Và sự khác biệt địa lý giữa nước đã & đang phát triển là gì?")
     st.markdown("""
-    
     <br>
     """, unsafe_allow_html=True)
     
