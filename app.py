@@ -5,30 +5,27 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import plotly.express as px
 
-# --- CẤU HÌNH TRANG (Phải đặt đầu tiên) ---
+# --- 0. CẤU HÌNH & LOAD DATA ---
 st.set_page_config(
-    page_title="Global Climate Impact Dashboard",
-    page_icon="🌍",
+    page_title="Climate Impact Dashboard",
+    page_icon="⛈️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- 1. LOAD DATA & PREPROCESSING (Cache để chạy nhanh hơn) ---
 @st.cache_data
-def load_and_process_data():
-    # Thay đổi đường dẫn file nếu cần thiết
+def load_data():
     try:
         df = pd.read_csv('global_climate_events_economic_impact_2020_2025.csv')
-    except FileNotFoundError:
-        st.error("Không tìm thấy file dữ liệu. Hãy đảm bảo file csv nằm cùng thư mục với app.py")
+    except:
+        st.error("Lỗi: Không tìm thấy file 'global_climate_events_economic_impact_2020_2025.csv'")
         return None
 
-    # --- PREPROCESSING TỪ CODE CỦA BẠN ---
-    # 1. Xử lý ngày tháng
+    # Preprocessing cơ bản
     df['date'] = pd.to_datetime(df['date'])
     df['year'] = df['year'].astype(int)
-
-    # 2. Tạo cột Developed/Developing
+    
+    # Tạo biến Developed/Developing
     developed_countries = [
         'United States', 'Japan', 'Germany', 'United Kingdom', 'France', 'Italy', 'Canada',
         'Australia', 'South Korea', 'Netherlands', 'Switzerland', 'Sweden', 'Belgium',
@@ -37,225 +34,179 @@ def load_and_process_data():
     df['is_developed'] = df['country'].isin(developed_countries)
     df['dev_status'] = df['is_developed'].map({True: 'Developed', False: 'Developing'})
 
-    # 3. Tạo bin Response Time
+    # Preprocessing cho BQ1 (Response Time)
     bins_resp = [0, 6, 24, 72, np.inf]
     labels_resp = ['<6h (Siêu nhanh)', '6-24h (Nhanh)', '24-72h (Chậm)', '>72h (Rất chậm)']
     df['response_bin'] = pd.cut(df['response_time_hours'], bins=bins_resp, labels=labels_resp, include_lowest=True)
-
-    # 4. Tính tỷ lệ
     df['death_rate'] = (df['deaths'] / df['affected_population']) * 100
     df['injury_rate'] = (df['injuries'] / df['affected_population']) * 100
-    
-    # 5. Tạo Scale cho Population (BQ2)
+
+    # Preprocessing cho BQ2 (Scale)
     bins_pop = [0, 100000, 1000000, 5000000, df['affected_population'].max()+1]
     labels_pop = ['<100k', '100k–1M', '1M–5M', '>5M (Mega-event)']
     df['scale'] = pd.cut(df['affected_population'], bins=bins_pop, labels=labels_pop)
     
-    # 6. Log transform cho visualization phân phối
+    # Log transform cho EDA
     df['log_impact'] = np.log1p(df['economic_impact_million_usd'])
-
+    
     return df
 
-df = load_and_process_data()
+df = load_data()
 
 if df is not None:
-    # --- SIDEBAR FILTERS ---
-    st.sidebar.header("🛠️ Bộ Lọc Dữ Liệu")
+    # --- SIDEBAR ---
+    st.sidebar.title("⚙️ Bộ lọc")
+    years = st.sidebar.multiselect("Năm", sorted(df['year'].unique()), default=sorted(df['year'].unique()))
+    types = st.sidebar.multiselect("Loại thiên tai", df['event_type'].unique(), default=df['event_type'].unique())
     
-    selected_year = st.sidebar.multiselect(
-        "Chọn Năm:", options=sorted(df['year'].unique()), default=sorted(df['year'].unique())
-    )
-    
-    selected_types = st.sidebar.multiselect(
-        "Loại Thiên Tai:", options=df['event_type'].unique(), default=df['event_type'].unique()
-    )
-    
-    selected_dev_status = st.sidebar.multiselect(
-        "Nhóm Quốc Gia:", options=['Developed', 'Developing'], default=['Developed', 'Developing']
-    )
+    # Lọc dữ liệu
+    df_sub = df[(df['year'].isin(years)) & (df['event_type'].isin(types))]
 
-    # Apply filters
-    df_filtered = df[
-        (df['year'].isin(selected_year)) & 
-        (df['event_type'].isin(selected_types)) &
-        (df['dev_status'].isin(selected_dev_status))
-    ]
+    st.title("🌍 Dashboard Phân Tích Tác Động Khí Hậu Toàn Cầu")
+    st.markdown("---")
 
-    # --- MAIN DASHBOARD ---
-    st.title("🌍 Global Climate Events & Economic Impact Analysis")
-    st.markdown("### *Từ Phân Tích Dữ Liệu đến Nghịch Lý Thực Tế*")
+    # --- PHẦN 1: TỔNG QUAN & EDA ---
+    st.header("1️⃣ Tổng Quan & Khám Phá Dữ Liệu (EDA)")
     
-    # KPI Row
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Tổng Sự Kiện", f"{len(df_filtered):,}")
-    c2.metric("Tổng Thiệt Hại (Triệu USD)", f"${df_filtered['economic_impact_million_usd'].sum():,.0f}")
-    c3.metric("Số Người Bị Ảnh Hưởng", f"{df_filtered['affected_population'].sum():,.0f}")
-    c4.metric("Số Ca Tử Vong", f"{df_filtered['deaths'].sum():,.0f}")
+    # 1.1 KPIs
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Tổng sự kiện", f"{len(df_sub):,}")
+    k2.metric("Thiệt hại kinh tế", f"${df_sub['economic_impact_million_usd'].sum():,.0f} M")
+    k3.metric("Người bị ảnh hưởng", f"{df_sub['affected_population'].sum():,.0f}")
+    k4.metric("Thời gian ứng phó TB", f"{df_sub['response_time_hours'].mean():.1f} giờ")
+
+    # 1.2 Phân phối (EDA)
+    st.subheader("🔍 Domain Knowledge từ EDA")
+    col_eda1, col_eda2 = st.columns(2)
+    
+    with col_eda1:
+        # Histograms
+        st.markdown("**Phân phối dữ liệu (Log-transformed)**")
+        fig, ax = plt.subplots(figsize=(8, 4))
+        sns.histplot(df_sub['log_impact'], kde=True, ax=ax, color='teal')
+        ax.set_title("Phân phối thiệt hại kinh tế (Log Scale)")
+        st.pyplot(fig)
+    
+    with col_eda2:
+        st.info("""
+        **💡 Insight rút ra từ bước EDA:**
+        1. **Dữ liệu lệch phải (Right-skewed):** Hầu hết các biến số (thiệt hại, số người chết) không phân phối chuẩn.
+           -> *Hành động:* Cần sử dụng Log-transform khi chạy mô hình hồi quy.
+        2. **Tần suất vs Tác động:** Biểu đồ tần suất (Countplot) cho thấy bão/lũ lụt xảy ra nhiều nhất, nhưng Heatmap tương quan cho thấy số người chết không phụ thuộc tuyến tính vào viện trợ quốc tế (r rất thấp).
+        """)
+
+    with st.expander("Xem thêm biểu đồ Tần suất & Heatmap Tương quan"):
+        c1, c2 = st.columns(2)
+        with c1:
+            fig = px.bar(df_sub['event_type'].value_counts().reset_index(), x='index', y='event_type', title="Tần suất theo loại thiên tai")
+            st.plotly_chart(fig, use_container_width=True)
+        with c2:
+            corr = df_sub[['economic_impact_million_usd', 'deaths', 'response_time_hours', 'international_aid_million_usd']].corr()
+            fig, ax = plt.subplots()
+            sns.heatmap(corr, annot=True, cmap='coolwarm', fmt=".2f")
+            st.pyplot(fig)
 
     st.markdown("---")
 
-    # TABS PHÂN TÍCH
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Tổng Quan (EDA)", 
-        "🚑 Nghịch Lý 72h Vàng", 
-        "🏙️ Developed vs Developing", 
-        "🇨🇳 Nghịch Lý Quy Mô (Scale)"
-    ])
+    # --- PHẦN 2: BQ1 - RESPONSE TIME PARADOX ---
+    st.header("2️⃣ BQ1: Yếu Tố Thời Gian Ứng Phó & Nghịch Lý Phát Triển")
+    st.markdown("*Business Question: Tốc độ ứng phó ảnh hưởng thế nào đến thiệt hại nhân mạng? Các nước giàu có làm tốt hơn không?*")
 
-    # === TAB 1: TỔNG QUAN ===
-    with tab1:
-        st.subheader("1. Phân Bố Địa Lý & Loại Hình Thiên Tai")
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.caption("Bản đồ phân bố thiệt hại kinh tế (Log Scale)")
-            fig_map = px.scatter_geo(
-                df_filtered,
-                lat='latitude', lon='longitude',
-                color='event_type',
-                size='log_impact', # Dùng log để bong bóng không quá chênh lệch
-                hover_name='country',
-                hover_data=['economic_impact_million_usd', 'deaths', 'event_type'],
-                projection="natural earth",
-                title="Vị trí các sự kiện thiên tai"
-            )
-            fig_map.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
-            st.plotly_chart(fig_map, use_container_width=True)
-
-        with col2:
-            st.caption("Tần suất các loại thiên tai")
-            event_counts = df_filtered['event_type'].value_counts().reset_index()
-            event_counts.columns = ['Event Type', 'Count']
-            fig_bar = px.bar(event_counts, x='Count', y='Event Type', orientation='h', color='Count', color_continuous_scale='Viridis')
-            st.plotly_chart(fig_bar, use_container_width=True)
-            
-            st.info(f"**Insight:** Dữ liệu bao gồm {df['country'].nunique()} quốc gia với {df['event_type'].nunique()} loại hình thiên tai khác nhau.")
-
-    # === TAB 2: NGHỊCH LÝ 72H (BQ1 - Part 1) ===
-    with tab2:
-        st.subheader("2. Phân Tích Thời Gian Ứng Phó (Response Time)")
-        st.markdown("> **Giả thuyết:** Phản ứng càng nhanh (<72h), thiệt hại về người càng thấp?")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Tái hiện biểu đồ BQ1
-            fig, ax = plt.subplots(figsize=(8, 5))
-            sns.barplot(data=df_filtered, x='response_bin', y='death_rate', palette='Reds', ci=None, ax=ax)
-            ax.set_title('Tỷ Lệ Tử Vong Theo Response Time', fontweight='bold')
-            ax.set_ylabel('Tỷ lệ tử vong (%)')
-            ax.set_xlabel('Thời gian ứng phó')
-            st.pyplot(fig)
-            
-        with col2:
-            fig, ax = plt.subplots(figsize=(8, 5))
-            sns.barplot(data=df_filtered, x='response_bin', y='injury_rate', palette='Oranges', ci=None, ax=ax)
-            ax.set_title('Tỷ Lệ Thương Tích Theo Response Time', fontweight='bold')
-            ax.set_ylabel('Tỷ lệ thương tích (%)')
-            ax.set_xlabel('Thời gian ứng phó')
-            st.pyplot(fig)
-
+    # DQ1: 72h Vàng
+    st.subheader("📌 DQ1: Có tồn tại quy tắc '72 Giờ Vàng' không?")
+    col_bq1_1, col_bq1_2 = st.columns(2)
+    with col_bq1_1:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        sns.barplot(data=df_sub, x='response_bin', y='death_rate', palette='Reds', ci=None, ax=ax)
+        ax.set_title("Tỷ lệ Tử vong theo Thời gian ứng phó")
+        st.pyplot(fig)
+    with col_bq1_2:
         st.success("""
-        **Insight từ code:** - Các sự kiện có phản ứng **<6h** và **6-24h** có tỷ lệ tử vong thấp hơn đáng kể.
-        - Khi thời gian ứng phó vượt quá **72h**, tỷ lệ thương vong tăng vọt.
-        - **Kết luận:** "72 Giờ Vàng" là hoàn toàn chính xác trong tập dữ liệu này.
+        **✅ Kết luận:** CÓ.
+        - Nhóm **<6h** và **6-24h** có tỷ lệ tử vong thấp nhất.
+        - Sau **72h**, tỷ lệ tử vong tăng vọt.
+        
+        **🚀 Hành động:**
+        - Thiết lập hệ thống cảnh báo sớm để đảm bảo đội cứu hộ có mặt trong 24h đầu.
         """)
 
-    # === TAB 3: DEVELOPED vs DEVELOPING (BQ1 - Part 2 & BQ3) ===
-    with tab3:
-        st.subheader("3. So Sánh Nhóm Quốc Gia: Developed vs. Developing")
-        st.markdown("> **Bất ngờ:** Liệu các nước phát triển có luôn làm tốt hơn?")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("**Tỷ Lệ Tử Vong: Developing vs Developed**")
-            fig, ax = plt.subplots(figsize=(8, 6))
-            sns.boxplot(data=df_filtered, x='response_bin', y='death_rate', hue='dev_status', palette='Set1', ax=ax)
-            ax.set_title('Tỷ Lệ Tử Vong theo Nhóm Nước & Tốc Độ', fontsize=10)
-            st.pyplot(fig)
-            
-        with col2:
-            st.markdown("**Tốc độ phản ứng trung bình**")
-            # Dùng Plotly cho Bar chart này để đổi gió
-            avg_resp = df_filtered.groupby('dev_status')['response_time_hours'].mean().reset_index()
-            fig_bp = px.bar(avg_resp, x='dev_status', y='response_time_hours', color='dev_status', 
-                            title="Trung bình số giờ phản ứng", text_auto='.1f')
-            st.plotly_chart(fig_bp, use_container_width=True)
-
+    # DQ2: Developed vs Developing
+    st.subheader("📌 DQ2: Các nước phát triển (Developed) có tỷ lệ tử vong thấp hơn không?")
+    col_bq1_3, col_bq1_4 = st.columns(2)
+    with col_bq1_3:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        sns.boxplot(data=df_sub, x='response_bin', y='death_rate', hue='dev_status', palette='Set1', ax=ax)
+        ax.set_title("So sánh: Developed vs Developing")
+        st.pyplot(fig)
+    with col_bq1_4:
         st.error("""
-        **😱 SHOCKING INSIGHT:**
-        - **Developed Countries** (Các nước phát triển) có tỷ lệ tử vong cao hơn khi phản ứng chậm!
-        - **Developing Countries** (Các nước đang phát triển) lại có tốc độ phản ứng trung bình **NHANH HƠN** trong tập dữ liệu này.
-        - *Lý giải:* Có thể do cơ chế báo cáo chặt chẽ hơn ở các nước phát triển, hoặc các nước đang phát triển thường xuyên đối mặt thiên tai nên có phản xạ cộng đồng tốt hơn?
+        **😱 Nghịch lý:** KHÔNG HẲN.
+        - Ở các mức phản ứng chậm (>24h), các nước **Developed** lại có tỷ lệ tử vong cao hơn bất thường.
+        - Các nước **Developing** phản ứng trung bình nhanh hơn (có thể do quen với thiên tai?).
+        
+        **🚀 Hành động:**
+        - Các nước phát triển cần xem lại quy trình ứng phó khẩn cấp khi sự kiện kéo dài.
         """)
-        
-        st.markdown("---")
-        st.subheader("Mối quan hệ: Response Time vs. International Aid")
-        
-        # Scatter Plot BQ3
-        fig, ax = plt.subplots(figsize=(10, 5))
-        sns.scatterplot(data=df_filtered, x='response_time_hours', y='international_aid_million_usd',
-                        hue='dev_status', size='deaths', sizes=(20, 300), alpha=0.7, palette='Set1', ax=ax)
-        ax.set_title('Response Time vs Viện Trợ (Size = Số người chết)')
+
+    # DQ3: Aid vs Response
+    st.subheader("📌 DQ3: Phản ứng chậm có nhận được nhiều viện trợ hơn không?")
+    st.markdown(f"Correlation: **{df_sub['response_time_hours'].corr(df_sub['international_aid_million_usd']):.4f}** (Gần như bằng 0)")
+    fig = px.scatter(df_sub, x="response_time_hours", y="international_aid_million_usd", 
+                     color="dev_status", size="deaths", hover_name="country",
+                     title="Response Time vs Viện trợ (Size = Số người chết)")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    st.markdown("---")
+
+    # --- PHẦN 3: BQ2 - SCALE PARADOX ---
+    st.header("3️⃣ BQ2: Nghịch Lý Quy Mô (The Scale Paradox)")
+    st.markdown("*Business Question: Sự kiện quy mô càng lớn (Mega-events) thì càng hỗn loạn và chậm trễ?*")
+
+    # DQ4: Scale vs Response
+    st.subheader("📌 DQ4: Quy mô dân số bị ảnh hưởng tác động thế nào đến tốc độ ứng phó?")
+    
+    col_bq2_1, col_bq2_2 = st.columns(2)
+    with col_bq2_1:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        sns.barplot(data=df_sub, x='scale', y='response_time_hours', palette='Blues_d', ci=None, ax=ax)
+        ax.set_title("Tốc độ ứng phó theo Quy mô")
         st.pyplot(fig)
-        st.caption("Biểu đồ cho thấy mối tương quan yếu giữa thời gian phản ứng và viện trợ quốc tế.")
+    with col_bq2_2:
+        st.warning("""
+        **🤔 Quan sát:**
+        - Sự kiện >5M người (Mega-event) lại có tốc độ ứng phó **NHANH NHẤT**.
+        - Nghe có vẻ vô lý vì quy mô lớn thường gây tắc nghẽn.
+        -> *Cần đào sâu xem quốc gia nào chi phối nhóm này.*
+        """)
 
-    # === TAB 4: NGHỊCH LÝ QUY MÔ (BQ2) ===
-    with tab4:
-        st.subheader("4. Nghịch Lý Quy Mô (Affected Population Paradox)")
-        st.markdown("> **Câu hỏi:** Sự kiện quy mô càng lớn (>5M người) thì phản ứng càng chậm do quá tải? HAY NGƯỢC LẠI?")
-        
-        # Scale Analysis
-        col1, col2 = st.columns(2)
-        with col1:
-            fig, ax = plt.subplots(figsize=(8, 5))
-            sns.barplot(data=df_filtered, x='scale', y='response_time_hours', palette='Blues_d', ci=None, ax=ax)
-            ax.set_title('Response Time Theo Quy Mô', fontweight='bold')
-            ax.set_ylabel("Giờ")
-            st.pyplot(fig)
-        
-        with col2:
-            fig, ax = plt.subplots(figsize=(8, 5))
-            sns.barplot(data=df_filtered, x='scale', y='death_rate', palette='Reds_d', ci=None, ax=ax)
-            ax.set_title('Tỷ Lệ Tử Vong Theo Quy Mô', fontweight='bold')
-            ax.set_ylabel("Tỷ lệ tử vong (%)")
-            st.pyplot(fig)
+    # DQ5: China & India Factor
+    st.subheader("📌 DQ5: Ai đứng sau nghịch lý này?")
+    
+    # Checkbox tương tác quan trọng
+    remove_giants = st.checkbox("🛑 Loại bỏ China & India khỏi dữ liệu để kiểm chứng?", value=False)
+    
+    if remove_giants:
+        data_viz = df_sub[~df_sub['country'].isin(['China', 'India'])]
+        st.caption("Đang hiển thị dữ liệu: **Thế giới (Trừ China & India)**")
+    else:
+        data_viz = df_sub
+        st.caption("Đang hiển thị dữ liệu: **Toàn cầu (Bao gồm China & India)**")
 
-        st.markdown("### 🕵️ Đi tìm nguyên nhân: Vai trò của China & India")
-        
-        # Checkbox để bật tắt China/India
-        exclude_giants = st.checkbox("Loại bỏ China & India khỏi phân tích để kiểm chứng?")
-        
-        if exclude_giants:
-            df_temp = df_filtered[~df_filtered['country'].isin(['China', 'India'])]
-            st.warning("Đã loại bỏ China và India khỏi dữ liệu.")
-        else:
-            df_temp = df_filtered
-            st.info("Đang bao gồm China và India (Chiếm phần lớn các sự kiện Mega-event).")
-
-        # Vẽ lại biểu đồ so sánh sau khi filter
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
-        
-        sns.barplot(data=df_temp, x='scale', y='response_time_hours', ax=ax1, palette='Greys_d', ci=None)
-        ax1.set_title(f'Response Time ({"NO China/India" if exclude_giants else "All"})')
-        
-        sns.barplot(data=df_temp, x='scale', y='death_rate', ax=ax2, palette='Greys_d', ci=None)
-        ax2.set_title(f'Death Rate ({"NO China/India" if exclude_giants else "All"})')
-        
+    c1, c2 = st.columns(2)
+    with c1:
+        fig, ax = plt.subplots()
+        sns.barplot(data=data_viz, x='scale', y='response_time_hours', palette='Greys_d', ci=None, ax=ax)
+        ax.set_title(f"Response Time ({'NO China/India' if remove_giants else 'ALL'})")
         st.pyplot(fig)
+    with c2:
+        st.info("""
+        **💡 Insight Cốt Lõi:**
+        - **China & India** chiếm đa số các sự kiện Mega-event và họ phản ứng rất nhanh.
+        - Khi **loại bỏ** 2 nước này, biểu đồ bên trái thay đổi hoàn toàn: Quy mô lớn không còn nhanh nữa.
         
-        st.markdown("""
-        **Kết luận:**
-        - Khi bao gồm China & India: Các sự kiện "Mega-event" (>5M người) có tốc độ phản ứng cực nhanh và tỷ lệ tử vong thấp.
-        - Khi **loại bỏ** China & India: Nghịch lý biến mất! Quy mô lớn không còn đồng nghĩa với phản ứng nhanh hơn nữa.
-        => **China và India là nhân tố chính "gánh" chỉ số hiệu quả ứng phó thiên tai quy mô lớn.**
+        **🚀 Hành động chiến lược:**
+        - Các tổ chức quốc tế nên nghiên cứu mô hình ứng phó thiên tai diện rộng của China & India để áp dụng cho các quốc gia đông dân khác.
         """)
 
 else:
     st.stop()
-
-# Footer
-st.markdown("---")
-st.markdown("Designed by Your Name | Project UNKN Lab")
