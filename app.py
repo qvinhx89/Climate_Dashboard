@@ -172,11 +172,13 @@ def render_overview():
             navigate_to('BQ1')
 
 def render_bq1():
-    st.title("⚡ BQ1: Nghịch Lý Response Time & Giới Hạn 24h")
+    st.title("⚡ BQ1: Nghịch Lý Response Time & Giới Hạn 24h Vàng")
     
-    # Tính toán số liệu thực tế để đưa vào Insight
+    # Tính toán số liệu thực tế
     avg_death_fast = df[df['response_time_hours'] <= 24]['death_rate'].mean()
     avg_death_slow = df[df['response_time_hours'] > 24]['death_rate'].mean()
+    # Tránh chia cho 0
+    if avg_death_fast == 0: avg_death_fast = 0.000001 
     diff_percent = ((avg_death_slow - avg_death_fast) / avg_death_fast) * 100
 
     # DQ3.1
@@ -184,43 +186,47 @@ def render_bq1():
     c1, c2 = st.columns([1, 1])
     with c1:
         fig, ax = plt.subplots(figsize=(8, 5))
-        # Vẽ biểu đồ với bin mới
         sns.barplot(data=df, x='response_bin', y='death_rate', palette='Reds', ci=None, ax=ax)
         ax.set_title("Tỷ lệ Tử vong (%) theo Tốc độ Ứng phó", fontweight='bold')
-        ax.set_ylabel("Death Rate (%)")
         st.pyplot(fig)
     with c2:
         st.success(f"""
-        **✅ Insight Thực tế từ Dữ liệu:**
-        * **Nhóm phản ứng nhanh (<24h):** Tỷ lệ tử vong trung bình là **{avg_death_fast:.4f}%**.
-        * **Nhóm phản ứng chậm (>24h):** Tỷ lệ tử vong tăng lên **{avg_death_slow:.4f}%**.
-        * **Kết luận:** Khi phản ứng chậm hơn 24h, tỷ lệ tử vong tăng thêm **{diff_percent:.1f}%**.
-        * *Lưu ý: Dữ liệu hiện tại không ghi nhận sự kiện nào >60h, cho thấy năng lực ứng phó toàn cầu đã được cải thiện (không có ca cực chậm).*
+        **✅ Insight Thực tế:**
+        * Nhóm phản ứng nhanh (<24h): Tỷ lệ tử vong thấp ({avg_death_fast:.4f}%).
+        * Nhóm phản ứng chậm (>24h): Tỷ lệ tử vong tăng vọt lên {avg_death_slow:.4f}%.
+        * **Kết luận:** Chậm hơn 24h làm tăng rủi ro tử vong thêm **{diff_percent:.0f}%**.
         """)
 
     st.markdown("---")
 
-    # DQ3.2 & DQ3.3
+    # DQ3.2 & DQ3.3 (MỚI)
     c3, c4 = st.columns(2)
+    
     with c3:
         st.subheader("📌 DQ3.2: Developed vs. Developing")
         fig, ax = plt.subplots(figsize=(8, 5))
         sns.boxplot(data=df, x='dev_status', y='response_time_hours', palette='Set2', ax=ax)
         ax.set_title("Tốc độ: Developing NHANH HƠN Developed", fontweight='bold')
         st.pyplot(fig)
-        st.error("**Nghịch lý:** Developed countries phản ứng chậm hơn và khi chậm (>24h), họ chịu tổn thất nhân mạng cao gấp 3.8 lần.")
+        st.error("**Nghịch lý:** Developed countries phản ứng trung bình chậm hơn, và khi chậm thì hậu quả nghiêm trọng hơn.")
 
     with c4:
-        st.subheader("📌 DQ3.3: Nghịch lý Viện trợ")
-        fig = px.scatter(
-            df, x='response_time_hours', y='international_aid_million_usd',
-            color='continent', size='deaths', hover_name='country',
-            title="Response Time vs. Viện trợ (Màu=Châu lục)"
-        )
+        # --- THAY THẾ PHẦN VIỆN TRỢ BẰNG THIỆT HẠI HẠ TẦNG ---
+        st.subheader("📌 DQ3.3: Response Time vs. Hạ Tầng")
+        # Nhóm theo bin response để thấy xu hướng rõ hơn
+        infra_trend = df.groupby('response_bin')['infrastructure_damage_score'].mean().reset_index()
+        
+        fig = px.line(infra_trend, x='response_bin', y='infrastructure_damage_score', markers=True,
+                      title="Điểm Thiệt hại Hạ tầng (0-10) theo Tốc độ Ứng phó",
+                      labels={'infrastructure_damage_score': 'Avg Damage Score'})
         st.plotly_chart(fig, use_container_width=True)
-        st.warning("**Nghịch lý:** Response càng nhanh (<6h) nhận được viện trợ càng nhiều.")
+        
+        st.warning("""
+        **💡 Insight Mới:** * Tốc độ phản ứng **không giúp ích nhiều** cho việc bảo vệ hạ tầng (đường đi ngang).
+        * *Lý giải:* Hạ tầng thường bị phá hủy ngay lập tức khi thiên tai xảy ra, đội cứu hộ đến nhanh chỉ cứu được người chứ không cứu được nhà cửa đã sập.
+        """)
 
-    st.info("🚀 **ACTION:** KPI 90% sự kiện <24h | Quỹ thưởng Fast Response | Đào tạo chéo cho Developed countries.")
+    st.info("🚀 **ACTION:** Tập trung nguồn lực vào cứu người trong 24h đầu (vì hạ tầng đằng nào cũng hỏng).")
 
     # Navigation
     st.markdown("<br>", unsafe_allow_html=True)
