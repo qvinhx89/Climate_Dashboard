@@ -98,7 +98,17 @@ if df is not None:
     with st.expander("Xem thêm biểu đồ Tần suất & Heatmap Tương quan"):
         c1, c2 = st.columns(2)
         with c1:
-            fig = px.bar(df_sub['event_type'].value_counts().reset_index(), x='index', y='event_type', title="Tần suất theo loại thiên tai")
+            # --- SỬA LỖI TẠI ĐÂY ---
+            # Bước 1: Tính toán và reset index
+            event_counts = df_sub['event_type'].value_counts().reset_index()
+            
+            # Bước 2: Đặt tên cột cụ thể để tránh lỗi version Pandas
+            # Cột 0 là loại thiên tai, Cột 1 là số lượng
+            event_counts.columns = ['Loại thiên tai', 'Số lượng'] 
+            
+            # Bước 3: Vẽ biểu đồ với tên cột mới
+            fig = px.bar(event_counts, x='Số lượng', y='Loại thiên tai', 
+                         title="Tần suất theo loại thiên tai", orientation='h')
             st.plotly_chart(fig, use_container_width=True)
         with c2:
             corr = df_sub[['economic_impact_million_usd', 'deaths', 'response_time_hours', 'international_aid_million_usd']].corr()
