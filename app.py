@@ -80,49 +80,50 @@ def render_overview():
     st.title("🌍 Global Climate Impact Dashboard")
     st.markdown("### *Phân tích Chiến lược từ Dữ liệu Thực tế (2020-2025)*")
     
+    # --- HÀNG 1: KPIs ---
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Tổng Sự Kiện", f"{len(df):,}")
+    k2.metric("Tổng Thiệt Hại", f"${df['economic_impact_million_usd'].sum():,.0f} M")
+    k3.metric("Người bị ảnh hưởng", f"{df['affected_population'].sum():,.0f}")
+    k4.metric("Tốc độ Ứng phó TB", f"{df['response_time_hours'].mean():.1f} giờ")
+    
     st.markdown("---")
     
-    # === PHẦN 1: VISUALIZATION (BẢN ĐỒ & BIỂU ĐỒ) ===
-    st.subheader("1. Phân Bố Địa Lý & Domain Knowledge")
+    # --- HÀNG 2: MAP & BAR CHART ---
+    st.subheader("1. Phân Bố Địa Lý & Tần Suất")
     col1, col2 = st.columns([3, 2])
     
     with col1:
-        # CẬP NHẬT: Dùng Choropleth Map để sửa lỗi tọa độ
+        # CHỈNH SỬA: Dùng Choropleth Map để sửa lỗi vị trí địa lý
         country_map_data = df.groupby('country').agg({
             'economic_impact_million_usd': 'sum',
             'event_id': 'count'
         }).reset_index()
-        country_map_data.columns = ['country', 'total_impact', 'event_count']
-
+        
         fig_map = px.choropleth(
             country_map_data,
             locations="country",
             locationmode="country names",
-            color="total_impact",
+            color="economic_impact_million_usd",
             hover_name="country",
-            hover_data=["event_count"],
+            hover_data=["event_id"],
             color_continuous_scale="Reds",
-            title="Bản đồ Nhiệt: Tổng thiệt hại Kinh tế (USD)",
+            title="Bản đồ Nhiệt: Tổng thiệt hại Kinh tế",
             projection="natural earth"
         )
         fig_map.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
         st.plotly_chart(fig_map, use_container_width=True)
         
     with col2:
-        st.info("""
-        **💡 Insight từ EDA:**
-        1. **Dữ liệu lệch (Skewness):** Thiệt hại và số người chết phân phối lệch phải nghiêm trọng -> Cần xử lý Binning/Log.
-        2. **Tương quan yếu:** Heatmap (bên dưới) chứng minh Response Time và Viện trợ có tương quan rất thấp.
-        3. **Địa lý:** Các vùng màu đỏ đậm trên bản đồ thể hiện nơi chịu thiệt hại kinh tế nặng nề nhất.
-        """)
+        # Chỉ để biểu đồ ở đây, đã dời Insight xuống dưới
         event_counts = df['event_type'].value_counts().reset_index()
         event_counts.columns = ['Loại', 'Số lượng']
         fig_bar = px.bar(event_counts, x='Số lượng', y='Loại', orientation='h', title="Tần suất Loại thiên tai")
         st.plotly_chart(fig_bar, use_container_width=True)
 
-    st.markdown("---")
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    # === PHẦN 2: TOP QUỐC GIA & HEATMAP ===
+    # --- HÀNG 3: TOP 15 & HEATMAP ---
     st.subheader("2. Top Quốc Gia & Tương Quan Biến Số")
     c3, c4 = st.columns(2)
     
@@ -149,13 +150,16 @@ def render_overview():
 
     st.markdown("---")
 
-    # === PHẦN 3: KEY METRICS (ĐƯA XUỐNG CUỐI) ===
-    st.subheader("📊 Tổng Quan Số Liệu Chính (Key Summary Metrics)")
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Tổng Sự Kiện", f"{len(df):,}", help="Tổng số dòng dữ liệu")
-    k2.metric("Tổng Thiệt Hại", f"${df['economic_impact_million_usd'].sum():,.0f} M", help="Tổng thiệt hại kinh tế ước tính")
-    k3.metric("Người bị ảnh hưởng", f"{df['affected_population'].sum():,.0f}", help="Tổng số dân bị ảnh hưởng")
-    k4.metric("Tốc độ Ứng phó TB", f"{df['response_time_hours'].mean():.1f} giờ", help="Thời gian trung bình từ khi xảy ra đến khi ứng cứu")
+    # --- HÀNG 4: INSIGHT & DOMAIN KNOWLEDGE (DỜI XUỐNG ĐÂY) ---
+    st.subheader("3. 🔍 Domain Knowledge & Insight từ EDA")
+    st.info("""
+    **💡 Tổng hợp các phát hiện quan trọng từ dữ liệu:**
+    1.  **Vấn đề Dữ liệu lệch (Skewness):** Hầu hết các biến số (thiệt hại, người chết) bị lệch phải (Right-skewed). 
+        *-> Bài học:* Không nên dùng giá trị trung bình (Mean) để đại diện cho toàn bộ, cần phân tích theo nhóm (Binning).
+    2.  **Nghịch lý Tương quan:** Heatmap cho thấy `response_time` và `deaths` có tương quan rất thấp (gần bằng 0).
+        *-> Bài học:* Mối quan hệ này không tuyến tính. Việc phản ứng chậm không *trực tiếp* gây chết người theo đường thẳng, mà nó có "ngưỡng chết" (Critical Threshold - ví dụ 24h).
+    3.  **Điểm nóng Địa lý:** Các thảm họa lớn tập trung ở **Châu Á (China, India)** và **Mỹ**, nơi chịu ảnh hưởng của cả bão và lũ lụt quy mô lớn.
+    """)
 
     # Navigation
     st.markdown("<br>", unsafe_allow_html=True)
@@ -274,7 +278,7 @@ def render_bq2():
 
     # Navigation
     st.markdown("<br>", unsafe_allow_html=True)
-    col_p, col_mid = st.columns([1, 5])
+    col_p, col_mid, col_n = st.columns([1, 4, 1])
     with col_p:
         if st.button("⬅️ Quay lại BQ1", use_container_width=True):
             navigate_to('BQ1')
@@ -287,7 +291,7 @@ def render_conclusion():
     st.markdown("### *Bức tranh toàn cảnh: Từ dữ liệu đến hành động thực tiễn*")
 
     # 1. Summary Metrics
-    st.markdown("#### 🏆 Top Key Insights (Số liệu ấn tượng nhất)")
+    st.markdown("#### 🏆 Top Key Insights")
     c1, c2, c3 = st.columns(3)
     c1.metric(label="Quy tắc 24h Vàng", value="-52% Deaths", delta="Nếu phản ứng <24h")
     c2.metric(label="China & India Factor", value="36% Faster", delta="So với thế giới", delta_color="normal")
@@ -303,7 +307,7 @@ def render_conclusion():
     * **Trục tung (Y):** Tỷ lệ tử vong TB (Càng thấp càng tốt).
     """)
 
-    # Data prep cho Scatter Plot tổng hợp
+    # Data prep
     country_perf = df.groupby(['country', 'dev_status', 'continent']).agg({
         'response_time_hours': 'mean',
         'death_rate': 'mean',
@@ -332,7 +336,7 @@ def render_conclusion():
 
     st.success("""
     **🎯 Phân tích Ma trận:**
-    * **Góc dưới bên trái (Lý tưởng):** Các nước phản ứng nhanh và chết ít (China, India, v.v.).
+    * **Góc dưới bên trái (Lý tưởng):** Các nước phản ứng nhanh và chết ít.
     * **Góc trên bên phải (Nguy hiểm):** Các nước phản ứng chậm và tỷ lệ tử vong cao.
     """)
 
@@ -354,7 +358,6 @@ def render_conclusion():
         st.checkbox("Chuyển giao công nghệ vệ tinh/AI dự báo cho các nước nhỏ.", value=False)
         st.checkbox("Tái cấu trúc quy trình khẩn cấp tại các đô thị lớn ở Developed Countries.", value=False)
 
-    # Navigation Start Over
     st.markdown("<br><br>", unsafe_allow_html=True)
     if st.button("🔄 Quay về Trang chủ (Overview)", type="secondary", use_container_width=True):
         navigate_to('Overview')
