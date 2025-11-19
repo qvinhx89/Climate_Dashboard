@@ -80,47 +80,40 @@ def render_overview():
     st.title("🌍 Global Climate Impact Dashboard")
     st.markdown("### *Phân tích Chiến lược từ Dữ liệu Thực tế (2020-2025)*")
     
-    # Row 1: KPIs
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Tổng Sự Kiện", f"{len(df):,}")
-    k2.metric("Tổng Thiệt Hại", f"${df['economic_impact_million_usd'].sum():,.0f} M")
-    k3.metric("Người bị ảnh hưởng", f"{df['affected_population'].sum():,.0f}")
-    k4.metric("Tốc độ Ứng phó TB", f"{df['response_time_hours'].mean():.1f} giờ")
-    
     st.markdown("---")
     
-    # Row 2: Map & Domain Knowledge
+    # === PHẦN 1: VISUALIZATION (BẢN ĐỒ & BIỂU ĐỒ) ===
     st.subheader("1. Phân Bố Địa Lý & Domain Knowledge")
     col1, col2 = st.columns([3, 2])
     
     with col1:
+        # CẬP NHẬT: Dùng Choropleth Map để sửa lỗi tọa độ
         country_map_data = df.groupby('country').agg({
-        'economic_impact_million_usd': 'sum',
-        'event_id': 'count'
-    }).reset_index()
-    country_map_data.columns = ['country', 'total_impact', 'event_count']
+            'economic_impact_million_usd': 'sum',
+            'event_id': 'count'
+        }).reset_index()
+        country_map_data.columns = ['country', 'total_impact', 'event_count']
 
-    # Vẽ bản đồ tô màu
-    fig_map = px.choropleth(
-        country_map_data,
-        locations="country",
-        locationmode="country names", # Tự động nhận diện tên nước
-        color="total_impact", # Tô màu theo tổng thiệt hại
-        hover_name="country",
-        hover_data=["event_count"],
-        color_continuous_scale="Reds", # Màu đỏ cảnh báo
-        title="Bản đồ Nhiệt: Tổng thiệt hại Kinh tế theo Quốc gia",
-        projection="natural earth"
-    )
-    fig_map.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
-    st.plotly_chart(fig_map, use_container_width=True)
+        fig_map = px.choropleth(
+            country_map_data,
+            locations="country",
+            locationmode="country names",
+            color="total_impact",
+            hover_name="country",
+            hover_data=["event_count"],
+            color_continuous_scale="Reds",
+            title="Bản đồ Nhiệt: Tổng thiệt hại Kinh tế (USD)",
+            projection="natural earth"
+        )
+        fig_map.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
+        st.plotly_chart(fig_map, use_container_width=True)
         
     with col2:
         st.info("""
         **💡 Insight từ EDA:**
         1. **Dữ liệu lệch (Skewness):** Thiệt hại và số người chết phân phối lệch phải nghiêm trọng -> Cần xử lý Binning/Log.
         2. **Tương quan yếu:** Heatmap (bên dưới) chứng minh Response Time và Viện trợ có tương quan rất thấp.
-        3. **Địa lý:** Tập trung lớn ở Châu Á (China, India) và các vùng duyên hải.
+        3. **Địa lý:** Các vùng màu đỏ đậm trên bản đồ thể hiện nơi chịu thiệt hại kinh tế nặng nề nhất.
         """)
         event_counts = df['event_type'].value_counts().reset_index()
         event_counts.columns = ['Loại', 'Số lượng']
@@ -129,7 +122,7 @@ def render_overview():
 
     st.markdown("---")
 
-    # Row 3: Top 15 Countries & Heatmap
+    # === PHẦN 2: TOP QUỐC GIA & HEATMAP ===
     st.subheader("2. Top Quốc Gia & Tương Quan Biến Số")
     c3, c4 = st.columns(2)
     
@@ -153,6 +146,16 @@ def render_overview():
         sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt='.2f', linewidths=.5, ax=ax)
         ax.set_title("Tương quan giữa các biến số chính")
         st.pyplot(fig_corr)
+
+    st.markdown("---")
+
+    # === PHẦN 3: KEY METRICS (ĐƯA XUỐNG CUỐI) ===
+    st.subheader("📊 Tổng Quan Số Liệu Chính (Key Summary Metrics)")
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Tổng Sự Kiện", f"{len(df):,}", help="Tổng số dòng dữ liệu")
+    k2.metric("Tổng Thiệt Hại", f"${df['economic_impact_million_usd'].sum():,.0f} M", help="Tổng thiệt hại kinh tế ước tính")
+    k3.metric("Người bị ảnh hưởng", f"{df['affected_population'].sum():,.0f}", help="Tổng số dân bị ảnh hưởng")
+    k4.metric("Tốc độ Ứng phó TB", f"{df['response_time_hours'].mean():.1f} giờ", help="Thời gian trung bình từ khi xảy ra đến khi ứng cứu")
 
     # Navigation
     st.markdown("<br>", unsafe_allow_html=True)
@@ -271,7 +274,7 @@ def render_bq2():
 
     # Navigation
     st.markdown("<br>", unsafe_allow_html=True)
-    col_p, col_mid, col_n = st.columns([1, 4, 1])
+    col_p, col_mid = st.columns([1, 5])
     with col_p:
         if st.button("⬅️ Quay lại BQ1", use_container_width=True):
             navigate_to('BQ1')
@@ -283,7 +286,7 @@ def render_conclusion():
     st.title("🏁 Tổng Kết & Khuyến Nghị Chiến Lược")
     st.markdown("### *Bức tranh toàn cảnh: Từ dữ liệu đến hành động thực tiễn*")
 
-    # 1. Summary Metrics (Tóm tắt lại các số liệu ấn tượng nhất)
+    # 1. Summary Metrics
     st.markdown("#### 🏆 Top Key Insights (Số liệu ấn tượng nhất)")
     c1, c2, c3 = st.columns(3)
     c1.metric(label="Quy tắc 24h Vàng", value="-52% Deaths", delta="Nếu phản ứng <24h")
@@ -292,7 +295,7 @@ def render_conclusion():
 
     st.markdown("---")
 
-    # 2. Performance Matrix (Biểu đồ mới - Rất quan trọng)
+    # 2. Performance Matrix
     st.subheader("📊 Ma Trận Hiệu Quả Quốc Gia (Performance Matrix)")
     st.markdown("""
     *Biểu đồ này gom nhóm tất cả các quốc gia để tìm ra ai đang hoạt động hiệu quả nhất.*
@@ -308,7 +311,6 @@ def render_conclusion():
         'economic_impact_million_usd': 'sum'
     }).reset_index()
     
-    # Lọc bớt các nước có ít sự kiện để biểu đồ đỡ rối (chỉ lấy nước > 5 sự kiện)
     country_perf = country_perf[country_perf['event_id'] > 5]
 
     fig_matrix = px.scatter(
@@ -318,27 +320,25 @@ def render_conclusion():
         size="event_id", 
         color="dev_status", 
         hover_name="country",
-        text="country", # Hiển thị tên nước
-        log_y=True, # Log scale cho death rate để dễ nhìn
+        text="country",
+        log_y=True,
         title="Performance Matrix: Response Speed vs. Death Rate (Log Scale)",
         labels={"response_time_hours": "Avg Response Time (Hours)", "death_rate": "Avg Death Rate (%)"}
     )
     
-    # Thêm đường tham chiếu
     fig_matrix.add_vline(x=24, line_dash="dash", line_color="red", annotation_text="Ngưỡng 24h")
     fig_matrix.update_traces(textposition='top center')
     st.plotly_chart(fig_matrix, use_container_width=True)
 
     st.success("""
     **🎯 Phân tích Ma trận:**
-    * **Góc dưới bên trái (Lý tưởng):** Các nước phản ứng nhanh và chết ít (thường là China, India, một số nước Đông Á).
+    * **Góc dưới bên trái (Lý tưởng):** Các nước phản ứng nhanh và chết ít (China, India, v.v.).
     * **Góc trên bên phải (Nguy hiểm):** Các nước phản ứng chậm và tỷ lệ tử vong cao.
-    * **Nghịch lý Developed:** Nhiều nước phát triển nằm rải rác ở vùng giữa, cho thấy sự thiếu ổn định trong ứng phó thảm họa lớn.
     """)
 
     st.markdown("---")
 
-    # 3. Final Checklist (Hành động)
+    # 3. Final Checklist
     st.subheader("🚀 Lộ Trình Hành Động (Strategic Roadmap)")
     
     col1, col2 = st.columns(2)
