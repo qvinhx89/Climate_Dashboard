@@ -226,12 +226,10 @@ def render_overview():
             navigate_to('BQ1')
 
 def render_bq1():
-    st.markdown("# ⚡ BQ1: Nghịch Lý Response Time")
+    st.markdown("# ⚡ BQ1: Response time có ảnh hưởng đến số lượng người chết và bị thương không? Ảnh hưởng như thế nào? Và sự khác biệt địa lý giữa nước đã & đang phát triển là gì?
+")
     st.markdown("""
-    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 10px; border-left: 5px solid #ff4b4b;">
-        <b>Câu hỏi lớn (BQ):</b> Response time có ảnh hưởng đến số lượng người chết và bị thương không? 
-        Ảnh hưởng như thế nào? Và sự khác biệt địa lý giữa nước đã & đang phát triển là gì?
-    </div>
+    
     <br>
     """, unsafe_allow_html=True)
     
@@ -242,7 +240,7 @@ def render_bq1():
     diff_percent = ((avg_death_slow - avg_death_fast) / avg_death_fast) * 100
 
     # DQ1.1
-    st.subheader("📌 DQ1.1: Tác động của '24 Giờ Vàng'")
+    st.subheader("📌 DQ1.1: Tốc độ ứng phó ảnh hưởng thế nào đến tỷ lệ tử vong?'")
     c1, c2 = st.columns([1, 1])
     with c1:
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -262,7 +260,7 @@ def render_bq1():
     # DQ3.2 & DQ3.3
     c3, c4 = st.columns(2)
     with c3:
-        st.subheader("📌 DQ1.2: Developed vs. Developing")
+        st.subheader("📌 DQ1.2: Các nước giàu (Developed) có thực sự làm tốt hơn nước nghèo?")
         fig, ax = plt.subplots(figsize=(8, 5))
         sns.boxplot(data=df, x='dev_status', y='response_time_hours', palette='Set2', ax=ax)
         ax.set_title("Tốc độ: Developing NHANH HƠN Developed", fontweight='bold')
@@ -270,7 +268,7 @@ def render_bq1():
         st.error("**Nghịch lý:** Nước phát triển (Developed) phản ứng trung bình chậm hơn nước đang phát triển, và khi chậm thì hậu quả nghiêm trọng hơn.")
 
     with c4:
-        st.subheader("📌 DQ1.3: Response Time vs. Hạ Tầng")
+        st.subheader("📌 DQ1.3: Phản ứng nhanh có cứu được cơ sở hạ tầng (nhà cửa, cầu đường) không?")
         infra_trend = df.groupby('response_bin')['infrastructure_damage_score'].mean().reset_index()
         fig = px.line(infra_trend, x='response_bin', y='infrastructure_damage_score', markers=True,
                       title="<b>Điểm Thiệt hại Hạ tầng (0-10) theo Tốc độ</b>",
@@ -293,16 +291,12 @@ def render_bq1():
             navigate_to('BQ2')
 
 def render_bq2():
-    st.markdown("# 🇨🇳 BQ2: Nghịch Lý Quy Mô (Scale Paradox)")
+    st.markdown("# BQ2: Tỷ lệ tử vong và response time ảnh hưởng thế nào đến các sự kiện lớn/nhỏ? Liệu có theo triết lý thông thường “càng nhỏ càng dễ phản ứng”? (Scale Paradox)")
     st.markdown("""
-    <div style="background-color: #f9f9f9; padding: 15px; border-radius: 10px; border-left: 5px solid #2e86c1;">
-        <b>Câu hỏi lớn (BQ):</b> Tỷ lệ tử vong và response time ảnh hưởng thế nào đến các sự kiện lớn/nhỏ? 
-        Liệu có theo triết lý thông thường “càng nhỏ càng dễ phản ứng”?
-    </div>
     <br>
     """, unsafe_allow_html=True)
     
-    st.subheader("📌 DQ2.1 & DQ2.2: Quy mô càng lớn, Phản ứng càng nhanh?")
+    st.subheader("📌 DQ2.1 & DQ2.2: Quy mô ảnh hưởng như thế nào đối với tốc độ phản ứng và tỉ lệ chết?")
     col1, col2 = st.columns(2)
     with col1:
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -318,7 +312,7 @@ def render_bq2():
     st.markdown("---")
     
     # DQ2.3
-    st.markdown("### **DQ2.3: Ai đang 'gánh' các sự kiện Mega-event?**")
+    st.markdown("### **DQ2.3: Quốc gia nào chiếm đa số các mega-event (>5M người)?**")
     mega_events = df[df['scale'] == '>5M (Mega-event)']
     top10_mega = mega_events['country'].value_counts().head(10).reset_index()
     top10_mega.columns = ['Quốc gia', 'Số sự kiện Mega']
@@ -378,7 +372,7 @@ def render_bq2():
             st.pyplot(fig)
             st.caption("China & India nhanh hơn thế giới trung bình 36%.")
 
-    st.info("🚀 **ACTION:** Không coi đây là lỗi dữ liệu. Thế giới cần học mô hình 'Mega-event Response' và chuyển giao công nghệ từ China/India.")
+    st.info("🚀 **ACTION:** Thế giới cần học mô hình 'Mega-event Response' và chuyển giao công nghệ từ China/India.")
 
     # Nav
     st.markdown("<br>", unsafe_allow_html=True)
@@ -438,7 +432,7 @@ def render_conclusion():
     st.markdown("---")
 
     # Checklist
-    st.subheader("🚀 Lộ Trình Hành Động (Strategic Roadmap)")
+    st.subheader("🚀 Đề xuất lộ trình hành động (Strategic Roadmap)")
     
     col1, col2 = st.columns(2)
     with col1:
