@@ -42,8 +42,11 @@ def load_and_process_data():
     df['is_developed'] = df['country'].isin(developed_countries)
     df['dev_status'] = df['is_developed'].map({True: 'Developed', False: 'Developing'})
 
-    bins_resp = [0, 6, 24, 72, np.inf]
-    labels_resp = ['<6h (Siêu tốc)', '6-24h (Nhanh)', '24-72h (Chậm)', '>72h (Rất chậm)']
+    # --- SỬA LẠI BINNING CHO PHÙ HỢP DỮ LIỆU (Max = 60h) ---
+    # Chia lại thành 3 nhóm để đảm bảo nhóm nào cũng có dữ liệu dày dặn
+    bins_resp = [0, 12, 24, np.inf]
+    labels_resp = ['<12h (Nhanh)', '12-24h (Trung bình)', '>24h (Chậm)']
+    
     df['response_bin'] = pd.cut(df['response_time_hours'], bins=bins_resp, labels=labels_resp, include_lowest=True)
 
     df['death_rate'] = (df['deaths'] / df['affected_population']) * 100
@@ -169,21 +172,30 @@ def render_overview():
             navigate_to('BQ1')
 
 def render_bq1():
-    st.title("⚡ BQ1: Nghịch Lý Response Time & Giới Hạn 24h Vàng")
+    st.title("⚡ BQ1: Nghịch Lý Response Time & Giới Hạn 24h")
     
+    # Tính toán số liệu thực tế để đưa vào Insight
+    avg_death_fast = df[df['response_time_hours'] <= 24]['death_rate'].mean()
+    avg_death_slow = df[df['response_time_hours'] > 24]['death_rate'].mean()
+    diff_percent = ((avg_death_slow - avg_death_fast) / avg_death_fast) * 100
+
     # DQ3.1
-    st.subheader("📌 DQ3.1: Xác thực 'Giới Hạn 24h Vàng'")
+    st.subheader("📌 DQ3.1: Tác động của thời gian ứng phó (<24h vs >24h)")
     c1, c2 = st.columns([1, 1])
     with c1:
         fig, ax = plt.subplots(figsize=(8, 5))
+        # Vẽ biểu đồ với bin mới
         sns.barplot(data=df, x='response_bin', y='death_rate', palette='Reds', ci=None, ax=ax)
-        ax.set_title("Tỷ lệ Tử vong (%) theo Thời gian Ứng phó", fontweight='bold')
+        ax.set_title("Tỷ lệ Tử vong (%) theo Tốc độ Ứng phó", fontweight='bold')
+        ax.set_ylabel("Death Rate (%)")
         st.pyplot(fig)
     with c2:
-        st.success("""
-        **✅ Insight Thực tế:** 24h đầu tiên là "Giới hạn vàng".
-        * **<24h:** Tỷ lệ tử vong thấp ổn định (~0.004%).
-        * **>72h:** Tăng vọt lên 0.021% (**gấp 4.4 lần** so với mức thấp nhất).
+        st.success(f"""
+        **✅ Insight Thực tế từ Dữ liệu:**
+        * **Nhóm phản ứng nhanh (<24h):** Tỷ lệ tử vong trung bình là **{avg_death_fast:.4f}%**.
+        * **Nhóm phản ứng chậm (>24h):** Tỷ lệ tử vong tăng lên **{avg_death_slow:.4f}%**.
+        * **Kết luận:** Khi phản ứng chậm hơn 24h, tỷ lệ tử vong tăng thêm **{diff_percent:.1f}%**.
+        * *Lưu ý: Dữ liệu hiện tại không ghi nhận sự kiện nào >60h, cho thấy năng lực ứng phó toàn cầu đã được cải thiện (không có ca cực chậm).*
         """)
 
     st.markdown("---")
