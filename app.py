@@ -94,13 +94,26 @@ def render_overview():
     col1, col2 = st.columns([3, 2])
     
     with col1:
-        fig_map = px.scatter_geo(
-            df, lat='latitude', lon='longitude', color='event_type',
-            size='log_impact', hover_name='country', projection="natural earth",
-            title="Bản đồ Tác động (Size = Log Impact)"
-        )
-        fig_map.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
-        st.plotly_chart(fig_map, use_container_width=True)
+        country_map_data = df.groupby('country').agg({
+        'economic_impact_million_usd': 'sum',
+        'event_id': 'count'
+    }).reset_index()
+    country_map_data.columns = ['country', 'total_impact', 'event_count']
+
+    # Vẽ bản đồ tô màu
+    fig_map = px.choropleth(
+        country_map_data,
+        locations="country",
+        locationmode="country names", # Tự động nhận diện tên nước
+        color="total_impact", # Tô màu theo tổng thiệt hại
+        hover_name="country",
+        hover_data=["event_count"],
+        color_continuous_scale="Reds", # Màu đỏ cảnh báo
+        title="Bản đồ Nhiệt: Tổng thiệt hại Kinh tế theo Quốc gia",
+        projection="natural earth"
+    )
+    fig_map.update_layout(margin={"r":0,"t":30,"l":0,"b":0})
+    st.plotly_chart(fig_map, use_container_width=True)
         
     with col2:
         st.info("""
