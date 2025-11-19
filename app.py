@@ -172,7 +172,7 @@ def render_overview():
             navigate_to('BQ1')
 
 def render_bq1():
-    st.title("⚡ BQ1: Nghịch Lý Response Time & Giới Hạn 24h Vàng")
+    st.title("⚡ BQ1: Response time có ảnh hưởng đến số lượng người chết và bị thương không, nếu có thì ảnh hưởng như thế nào,  và nó có ảnh hưởng địa lý như thế nào ở các nước đã và đang phát triển?")
     
     # Tính toán số liệu thực tế
     avg_death_fast = df[df['response_time_hours'] <= 24]['death_rate'].mean()
@@ -181,8 +181,8 @@ def render_bq1():
     if avg_death_fast == 0: avg_death_fast = 0.000001 
     diff_percent = ((avg_death_slow - avg_death_fast) / avg_death_fast) * 100
 
-    # DQ3.1
-    st.subheader("📌 DQ3.1: Tác động của thời gian ứng phó (<24h vs >24h)")
+    # DQ1.1
+    st.subheader("📌 DQ1.1: Tác động của thời gian ứng phó (<24h vs >24h)")
     c1, c2 = st.columns([1, 1])
     with c1:
         fig, ax = plt.subplots(figsize=(8, 5))
@@ -191,7 +191,7 @@ def render_bq1():
         st.pyplot(fig)
     with c2:
         st.success(f"""
-        **✅ Insight Thực tế:**
+        **✅ Facts:**
         * Nhóm phản ứng nhanh (<24h): Tỷ lệ tử vong thấp ({avg_death_fast:.4f}%).
         * Nhóm phản ứng chậm (>24h): Tỷ lệ tử vong tăng vọt lên {avg_death_slow:.4f}%.
         * **Kết luận:** Chậm hơn 24h làm tăng rủi ro tử vong thêm **{diff_percent:.0f}%**.
@@ -203,7 +203,7 @@ def render_bq1():
     c3, c4 = st.columns(2)
     
     with c3:
-        st.subheader("📌 DQ3.2: Developed vs. Developing")
+        st.subheader("📌 DQ1.2: Developed vs. Developing")
         fig, ax = plt.subplots(figsize=(8, 5))
         sns.boxplot(data=df, x='dev_status', y='response_time_hours', palette='Set2', ax=ax)
         ax.set_title("Tốc độ: Developing NHANH HƠN Developed", fontweight='bold')
@@ -212,7 +212,7 @@ def render_bq1():
 
     with c4:
         # --- THAY THẾ PHẦN VIỆN TRỢ BẰNG THIỆT HẠI HẠ TẦNG ---
-        st.subheader("📌 DQ3.3: Response Time vs. Hạ Tầng")
+        st.subheader("📌 DQ1.3: Response Time vs. Hạ Tầng")
         # Nhóm theo bin response để thấy xu hướng rõ hơn
         infra_trend = df.groupby('response_bin')['infrastructure_damage_score'].mean().reset_index()
         
@@ -239,25 +239,56 @@ def render_bq1():
             navigate_to('BQ2')
 
 def render_bq2():
-    st.title("🇨🇳 BQ2: Nghịch Lý Quy Mô (The Scale Paradox)")
+    st.title(" BQ2: Tỉ lệ tỉ vong và response time ảnh hưởng như thế nào đến các sự kiện lớn và nhỏ, liệu nó có theo triết lý thông thường “càng nhỏ càng dễ phản ứng” ?")
     
-    st.subheader("📌 DQ1 & DQ2: Quy mô càng lớn, Phản ứng càng nhanh?")
+    st.subheader("📌 DQ2.1 & DQ2.2: Quy mô càng lớn, Phản ứng càng nhanh?")
     col1, col2 = st.columns(2)
     with col1:
         fig, ax = plt.subplots(figsize=(8, 5))
         sns.barplot(data=df, x='scale', y='response_time_hours', palette='Blues_d', ci=None, ax=ax)
-        ax.set_title("DQ1: Response Time (Mega-event nhanh nhất!)", fontweight='bold')
+        ax.set_title("DQ2.1: Response Time (Mega-event nhanh nhất!)", fontweight='bold')
         st.pyplot(fig)
     with col2:
         fig, ax = plt.subplots(figsize=(8, 5))
         sns.barplot(data=df, x='scale', y='death_rate', palette='Reds_d', ci=None, ax=ax)
-        ax.set_title("DQ2: Death Rate (Mega-event thấp nhất!)", fontweight='bold')
+        ax.set_title("DQ2.2: Death Rate (Mega-event thấp nhất!)", fontweight='bold')
         st.pyplot(fig)
     
     st.markdown("---")
     
+    # --- DQ2.3: TOP 10 QUỐC GIA MEGA-EVENT (MỚI BỔ SUNG) ---
+    st.markdown("**DQ2.3: Quốc gia nào 'gánh' các sự kiện Mega-event?**")
+    
+    mega_events = df[df['scale'] == '>5M (Mega-event)']
+    top10_mega = mega_events['country'].value_counts().head(10).reset_index()
+    top10_mega.columns = ['Quốc gia', 'Số sự kiện Mega']
+    
+    # Tính tỷ trọng China & India
+    total_mega = len(mega_events)
+    china_india_count = mega_events[mega_events['country'].isin(['China', 'India'])].shape[0]
+    percent_ci = (china_india_count / total_mega) * 100
+    
+    col_dq3_1, col_dq3_2 = st.columns([2, 1])
+    with col_dq3_1:
+        fig_dq3 = px.bar(top10_mega, x='Số sự kiện Mega', y='Quốc gia', orientation='h', 
+                         text='Số sự kiện Mega', title="Top 10 Quốc gia có Mega-event (>5M người)",
+                         color='Số sự kiện Mega', color_continuous_scale='Reds')
+        fig_dq3.update_layout(yaxis={'categoryorder':'total ascending'})
+        st.plotly_chart(fig_dq3, use_container_width=True)
+    with col_dq3_2:
+        st.warning(f"""
+        **🕵️‍♂️ Insight quan trọng:**
+        China và India áp đảo hoàn toàn bảng xếp hạng này.
+        * **Tổng số Mega-event:** {total_mega} sự kiện.
+        * **China & India:** {china_india_count} sự kiện.
+        * **Tỷ trọng:** Chiếm **{percent_ci:.1f}%** tổng số sự kiện quy mô lớn toàn cầu.
+        -> *Đây chính là đầu mối để giải mã nghịch lý.*
+        """)
+
+    st.markdown("---")
+    
     # DQ4 & DQ5: Checkbox logic
-    st.subheader("📌 DQ4 & DQ5: Ai đứng sau nghịch lý này?")
+    st.subheader("📌 DQ2.4 & DQ2.5: Ai đứng sau nghịch lý này?")
     
     st.markdown("#### 🕵️‍♂️ Kiểm chứng giả thuyết:")
     exclude_giants = st.checkbox("🛑 **Loại bỏ China & India** ra khỏi dữ liệu?", value=False)
